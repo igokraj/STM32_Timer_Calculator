@@ -22,15 +22,6 @@ The algorithm searches for a PSC/ARR pair (16-bit range: 0–65535) that minimiz
 
 The LED in the results blinks live at the computed period — a quick visual sanity check.
 
-## Running locally
-
-No dependencies — a single standalone HTML file. Just open it in a browser:
-
-```
-open index.html      # macOS
-start index.html      # Windows
-```
-
 ## Notes
 
 - The calculator assumes a 16-bit timer (like TIM1/TIM3/TIM4 on STM32F4). For very long periods at a low clock, it suggests a 32-bit timer (TIM2/TIM5) or a software counter in the callback.
