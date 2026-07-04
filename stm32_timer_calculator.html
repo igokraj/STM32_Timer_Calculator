@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STM32 Timer Calculator — PSC / ARR</title>
+<style>
+  :root{
+    --blue-1: #0a1e33;
+    --blue-2: #0e2740;
+    --blue-3: #12304d;
+    --line: #4fa8d8;
+    --line-bright: #7ec4ec;
+    --paper: #e8f1f7;
+    --paper-dim: #8fa9bd;
+    --led-off: #1a3450;
+    --led-on: #ff9d47;
+    --led-glow: rgba(255, 157, 71, 0.65);
+    --mono: 'JetBrains Mono', 'Consolas', 'SF Mono', monospace;
+    --sans: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      linear-gradient(rgba(79,168,216,0.12) 1px, transparent 1px) 0 0 / 24px 24px,
+      linear-gradient(90deg, rgba(79,168,216,0.12) 1px, transparent 1px) 0 0 / 24px 24px,
+      linear-gradient(rgba(79,168,216,0.05) 1px, transparent 1px) 0 0 / 120px 120px,
+      linear-gradient(90deg, rgba(79,168,216,0.05) 1px, transparent 1px) 0 0 / 120px 120px,
+      var(--blue-1);
+    color: var(--paper);
+    font-family: var(--sans);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px;
+  }
+
+  .sheet {
+    width: 100%;
+    max-width: 640px;
+    background: var(--blue-2);
+    border: 1px solid rgba(79,168,216,0.35);
+    border-radius: 2px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(0,0,0,0.15);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .sheet::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--line-bright), transparent);
+    opacity: 0.7;
+  }
+
+  header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px dashed rgba(79,168,216,0.35);
+    position: relative;
+  }
+
+  .corner-marks span {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid var(--line);
+    opacity: 0.6;
+  }
+  .corner-marks .tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+  .corner-marks .tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--line-bright);
+    text-transform: uppercase;
+    margin: 0 0 6px;
+  }
+
+  h1 {
+    font-size: 22px;
+    margin: 0;
+    font-weight: 600;
+    color: var(--paper);
+    letter-spacing: 0.01em;
+  }
+
+  h1 span { color: var(--line-bright); }
+
+  .subtitle {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: var(--paper-dim);
+    line-height: 1.5;
+  }
+
+  .body-content { padding: 28px 32px 32px; }
+
+  .field { margin-bottom: 20px; }
+
+  label {
+    display: block;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--paper-dim);
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+  }
+
+  .input-row {
+    display: flex;
+    align-items: center;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(79,168,216,0.35);
+    border-radius: 3px;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+  }
+
+  .input-row:focus-within {
+    border-color: var(--line-bright);
+    outline: 2px solid rgba(126,196,236,0.35);
+    outline-offset: 1px;
+  }
+
+  input[type="number"] {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 12px 14px;
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 16px;
+    width: 100%;
+  }
+
+  input[type="number"]:focus { outline: none; }
+
+  .unit {
+    padding: 0 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--line-bright);
+    background: rgba(79,168,216,0.08);
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    border-left: 1px solid rgba(79,168,216,0.25);
+  }
+
+  .hint {
+    font-size: 11px;
+    color: var(--paper-dim);
+    margin-top: 6px;
+    font-family: var(--mono);
+  }
+
+  button.calc {
+    width: 100%;
+    padding: 13px;
+    background: var(--line);
+    color: #071624;
+    border: none;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.05s ease;
+    margin-top: 4px;
+  }
+
+  button.calc:hover { background: var(--line-bright); }
+  button.calc:active { transform: scale(0.995); }
+  button.calc:focus-visible { outline: 2px solid var(--paper); outline-offset: 2px; }
+
+  .result { margin-top: 28px; border-top: 1px dashed rgba(79,168,216,0.35); padding-top: 24px; display: none; }
+  .result.visible { display: block; }
+
+  .reg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+
+  .reg-cell {
+    background: rgba(0,0,0,0.25);
+    border: 1px solid rgba(79,168,216,0.3);
+    border-radius: 3px;
+    padding: 14px 16px;
+    position: relative;
+  }
+
+  .reg-cell::after {
+    content: "";
+    position: absolute;
+    bottom: 6px; right: 6px;
+    width: 6px; height: 6px;
+    border-right: 1.5px solid var(--line);
+    border-bottom: 1.5px solid var(--line);
+    opacity: 0.5;
+  }
+
+  .reg-label { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); letter-spacing: 0.08em; margin-bottom: 6px; }
+  .reg-value { font-family: var(--mono); font-size: 28px; font-weight: 700; color: var(--line-bright); line-height: 1; }
+  .reg-sub { font-family: var(--mono); font-size: 11px; color: var(--paper-dim); margin-top: 4px; }
+
+  .formula-box {
+    background: rgba(0,0,0,0.22);
+    border-left: 2px solid var(--line);
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--paper-dim);
+    line-height: 1.7;
+    margin-bottom: 20px;
+    white-space: pre-wrap;
+  }
+
+  .formula-box .val { color: var(--line-bright); }
+
+  .led-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(0,0,0,0.22);
+    border: 1px solid rgba(79,168,216,0.25);
+    border-radius: 3px;
+    padding: 16px;
+  }
+
+  .led {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--led-off);
+    box-shadow: inset 0 0 3px rgba(0,0,0,0.6);
+    flex-shrink: 0;
+    transition: background 0.05s linear, box-shadow 0.05s linear;
+  }
+
+  .led.on {
+    background: var(--led-on);
+    box-shadow: 0 0 12px 3px var(--led-glow), inset 0 0 4px rgba(255,255,255,0.4);
+  }
+
+  .led-text { font-family: var(--mono); font-size: 12px; color: var(--paper-dim); }
+  .led-text strong { color: var(--paper); }
+
+  .error-note { font-family: var(--mono); font-size: 11px; margin-top: 14px; padding: 10px 12px; border-radius: 3px; }
+  .error-ok { color: #7ed6a0; background: rgba(126,214,160,0.08); border: 1px solid rgba(126,214,160,0.25); }
+  .error-warn { color: #e0b060; background: rgba(224,176,96,0.08); border: 1px solid rgba(224,176,96,0.25); }
+
+  .no-fit {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: var(--led-on);
+    padding: 12px 14px;
+    background: rgba(255,157,71,0.08);
+    border: 1px solid rgba(255,157,71,0.3);
+    border-radius: 3px;
+  }
+
+  footer {
+    padding: 16px 32px;
+    border-top: 1px dashed rgba(79,168,216,0.25);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--paper-dim);
+    letter-spacing: 0.05em;
+  }
+
+  @media (max-width: 480px) {
+    .reg-grid { grid-template-columns: 1fr; }
+    header, .body-content { padding-left: 20px; padding-right: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <header>
+    <div class="corner-marks"><span class="tl"></span><span class="tr"></span></div>
+    <p class="eyebrow">TIM &nbsp;/&nbsp; REGISTER CALCULATOR</p>
+    <h1>PSC <span>/</span> ARR<span>.</span></h1>
+    <p class="subtitle">Enter the timer clock and the target period — get the Prescaler and Counter Period (ARR) for the Update Event interrupt.</p>
+  </header>
+
+  <div class="body-content">
+    <div class="field">
+      <label for="clock">Timer clock frequency</label>
+      <div class="input-row">
+        <input type="number" id="clock" placeholder="e.g. 84" step="any" min="0">
+        <span class="unit">MHz</span>
+      </div>
+      <p class="hint">APB timer clock, not SYSCLK — check it in Clock Configuration in CubeMX</p>
+    </div>
+
+    <div class="field">
+      <label for="period">Target Update Event period</label>
+      <div class="input-row">
+        <input type="number" id="period" placeholder="e.g. 2.5" step="any" min="0">
+        <span class="unit">s</span>
+      </div>
+      <p class="hint">For 50 Hz blinking, enter 0.02 — period and frequency are the same number, just inverted</p>
+    </div>
+
+    <button class="calc" onclick="calculate()">Calculate</button>
+
+    <div class="result" id="result"></div>
+  </div>
+
+  <footer>NUCLEO-F446RE · TIM 16-bit · PSC/ARR ∈ [0, 65535]</footer>
+</div>
+
+<script>
+let blinkInterval = null;
+
+function calculate() {
+  const clockMHz = parseFloat(document.getElementById('clock').value);
+  const periodS = parseFloat(document.getElementById('period').value);
+  const resultBox = document.getElementById('result');
+
+  if (blinkInterval) { clearInterval(blinkInterval); blinkInterval = null; }
+
+  if (!clockMHz || !periodS || clockMHz <= 0 || periodS <= 0) {
+    resultBox.className = 'result visible';
+    resultBox.innerHTML = '<div class="no-fit">Enter valid, positive values in both fields.</div>';
+    return;
+  }
+
+  const fClock = clockMHz * 1e6;
+  const N = fClock * periodS; // target for (PSC+1)*(ARR+1)
+
+  const MAXV = 65536; // PSC+1 and ARR+1 max 65536 (16-bit +1)
+
+  if (N < 1) {
+    resultBox.className = 'result visible';
+    resultBox.innerHTML = '<div class="no-fit">Period too short for this clock — reduce required precision or increase the period.</div>';
+    return;
+  }
+  if (N > MAXV * MAXV) {
+    resultBox.className = 'result visible';
+    resultBox.innerHTML = '<div class="no-fit">Period too long — even at PSC=65535 and ARR=65535 (16-bit timer) this can\'t be reached. Consider a 32-bit timer (e.g. TIM2/TIM5) or a software counter in the callback.</div>';
+    return;
+  }
+
+  let best = null;
+  const pscUpperBound = Math.min(MAXV, Math.ceil(N) + 1);
+
+  for (let psc1 = 1; psc1 <= pscUpperBound; psc1++) {
+    const arr1raw = N / psc1;
+    const arr1 = Math.round(arr1raw);
+    if (arr1 < 1 || arr1 > MAXV) continue;
+
+    const achievedN = psc1 * arr1;
+    const err = Math.abs(achievedN - N) / N;
+
+    if (best === null || err < best.err || (err === best.err && psc1 < best.psc1)) {
+      best = { psc1, arr1, err };
+    }
+    if (err < 1e-9) break;
+  }
+
+  if (!best) {
+    resultBox.className = 'result visible';
+    resultBox.innerHTML = '<div class="no-fit">No valid PSC/ARR combination found within the 16-bit range for these parameters.</div>';
+    return;
+  }
+
+  const PSC = best.psc1 - 1;
+  const ARR = best.arr1 - 1;
+  const fTimer = fClock / (best.psc1 * best.arr1);
+  const achievedPeriod = 1 / fTimer;
+  const errPct = best.err * 100;
+
+  const errClass = errPct < 0.1 ? 'error-ok' : 'error-warn';
+  const errLabel = errPct < 0.1
+    ? `Accuracy: ${errPct.toFixed(4)}% error — essentially an exact match.`
+    : `Accuracy: ${errPct.toFixed(3)}% error — the actual period differs slightly from the target.`;
+
+  resultBox.className = 'result visible';
+  resultBox.innerHTML = `
+    <div class="reg-grid">
+      <div class="reg-cell">
+        <div class="reg-label">PRESCALER (PSC)</div>
+        <div class="reg-value">${PSC}</div>
+        <div class="reg-sub">TIMx_PSC register</div>
+      </div>
+      <div class="reg-cell">
+        <div class="reg-label">COUNTER PERIOD (ARR)</div>
+        <div class="reg-value">${ARR}</div>
+        <div class="reg-sub">TIMx_ARR register</div>
+      </div>
+    </div>
+
+    <div class="formula-box">f_timer = f_clock / ((PSC+1) × (ARR+1))
+f_timer = ${(fClock/1e6).toFixed(3)} MHz / ((<span class="val">${PSC}</span>+1) × (<span class="val">${ARR}</span>+1))
+f_timer = <span class="val">${fTimer.toFixed(6)} Hz</span>
+Actual period = <span class="val">${achievedPeriod.toFixed(6)} s</span> (target ${periodS} s)</div>
+
+    <div class="led-row">
+      <div class="led" id="led"></div>
+      <div class="led-text">Live preview — LED toggled every <strong>${achievedPeriod.toFixed(4)}s</strong> (full blink cycle = ${(achievedPeriod*2).toFixed(4)}s)</div>
+    </div>
+
+    <div class="error-note ${errClass}">${errLabel}</div>
+  `;
+
+  const led = document.getElementById('led');
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const intervalMs = Math.max(achievedPeriod * 1000, 30);
+
+  if (!prefersReducedMotion) {
+    let state = false;
+    blinkInterval = setInterval(() => {
+      state = !state;
+      led.classList.toggle('on', state);
+    }, intervalMs);
+  } else {
+    led.classList.add('on');
+  }
+}
+
+document.getElementById('period').addEventListener('keydown', e => { if (e.key === 'Enter') calculate(); });
+document.getElementById('clock').addEventListener('keydown', e => { if (e.key === 'Enter') calculate(); });
+</script>
+
+</body>
+</html>
