@@ -1,10 +1,8 @@
-# STM32 Timer Calculator — PSC / ARR
+# STM32 Timer Calculator 
 
 A simple web-based calculator for computing the **Prescaler (PSC)** and **Counter Period (ARR)** registers for STM32 timers, based on the timer clock and the desired Update Event interrupt period.
 
 <img width="1002" height="1277" alt="image" src="https://github.com/user-attachments/assets/763b21f1-5072-4b57-b343-2a63b5abf097" />
-
-🔗 **Demo:** _(GitHub Pages link once enabled)_
 
 ## How it works
 
